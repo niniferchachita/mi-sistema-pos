@@ -4,5 +4,5 @@ compatibility_date = "2026-11-01"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "pos-db-2"
-database_id = "af8addab-f7fc-48a4-a88b-e695bc72bd20"
+database_name = "pos-db-3"
+database_id = "84d9ff2a-794e-4ba4-bd04-1c0232d1ac12"
