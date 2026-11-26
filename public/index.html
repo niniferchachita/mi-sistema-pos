@@ -1871,7 +1871,7 @@
       }
     }
 
-    async function guardarEnNube() {
+    async function guardarEnNube() { if (window._supaGuardarFn) return window._supaGuardarFn(); if (typeof guardarDatosLocales !== 'function') return;
       guardarDatosLocales();
       if (typeof actualizarIndicadorNube === 'function') {
         actualizarIndicadorNube('syncing', 'Guardando en Supabase...');
@@ -1962,7 +1962,7 @@
       }
     }
 
-    async function cargarDatosDesdeNube(mostrarAviso = false) {
+    async function cargarDatosDesdeNube(mostrarAviso = false) { if (window._supaCargarFn) return window._supaCargarFn(mostrarAviso); if (typeof guardarDatosLocales !== 'function') return;
       if (typeof actualizarIndicadorNube === 'function') {
         actualizarIndicadorNube('syncing', 'Sincronizando Supabase...');
       }
@@ -5245,6 +5245,6 @@
     restaurarSesionGuardada();
     cargarDatosDesdeNube(false);
   </script>
-  <script src="supabase-sync.js?v=14"></script>
+  <script src="supabase-sync.js?v=15"></script>
 </body>
 </html>

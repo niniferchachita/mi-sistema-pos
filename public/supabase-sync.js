@@ -49,7 +49,7 @@
     return false;
   }
 
-  window.guardarEnNube = async function () {
+  window.guardarEnNube = window._supaGuardarFn = async function () {
     if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
     syncEnCurso = true;
     setStatus('syncing', 'Guardando en Supabase...');
@@ -137,7 +137,7 @@
     }
   };
 
-  window.cargarDatosDesdeNube = async function (mostrarAviso = false) {
+  window.cargarDatosDesdeNube = window._supaCargarFn = async function (mostrarAviso = false) {
     if (syncEnCurso && !mostrarAviso) return;
     syncEnCurso = true;
     if (mostrarAviso) setStatus('syncing', 'Sincronizando Supabase...');
