@@ -1878,7 +1878,7 @@
       }
 
       try {
-        const resGet = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor&t=' + Date.now(), {
+        const resGet = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor', {
           headers: SUPABASE_HEADERS,
           cache: 'no-store'
         });
@@ -1967,7 +1967,7 @@
         actualizarIndicadorNube('syncing', 'Sincronizando Supabase...');
       }
       try {
-        const res = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor&t=' + Date.now(), {
+        const res = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor', {
           headers: SUPABASE_HEADERS,
           cache: 'no-store'
         });
@@ -5245,6 +5245,6 @@
     restaurarSesionGuardada();
     cargarDatosDesdeNube(false);
   </script>
-  <script src="supabase-sync.js?v=13"></script>
+  <script src="supabase-sync.js?v=14"></script>
 </body>
 </html>
