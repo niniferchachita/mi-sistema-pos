@@ -7,6 +7,12 @@
     'Content-Type': 'application/json'
   };
 
+  function setStatus(estado, texto) {
+    if (typeof actualizarIndicadorNube === 'function') {
+      actualizarIndicadorNube(estado, texto);
+    }
+  }
+
   function limpiarTurnosYaCerrados() {
     if (typeof appData === 'undefined' || !Array.isArray(appData.turnosActivos)) return false;
     const cierres = Array.isArray(appData.historialCierres) ? appData.historialCierres : [];
@@ -40,70 +46,7 @@
     return false;
   }
 
-  window._supaReady = true;
-  // Evitar que el script inline de index.html sobrescriba nuestras funciones con las viejas
-  Object.defineProperty(window, 'guardarEnNube', {
-    get() { return window._supaGuardar; },
-    set(fn) { if (!window._supaGuardar) window._supaGuardar = fn; },
-    configurable: true
-  });
-  Object.defineProperty(window, 'cargarDatosDesdeNube', {
-    get() { return window._supaCargar; },
-    set(fn) { if (!window._supaCargar) window._supaCargar = fn; },
-    configurable: true
-  });
-
-  function setStatus(estado, texto) {
-    if (typeof actualizarIndicadorNube === 'function') {
-      actualizarIndicadorNube(estado, texto);
-    }
-  }
-
-  window.importarRespaldoJSON = async function (event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    try {
-      const texto = await file.text();
-      const parsed = JSON.parse(texto);
-      const s = parsed.state ? parsed.state : parsed;
-      if (!s || typeof s !== 'object') {
-        return alert('El archivo JSON no contiene un respaldo válido del POS.');
-      }
-      if (!confirm('¿Restaurar todos los datos desde este respaldo y guardarlos en Supabase?')) {
-        event.target.value = '';
-        return;
-      }
-      if (Array.isArray(s.usuarios)) appData.usuarios = s.usuarios;
-      if (s.saldoCajaGeneral !== undefined) appData.saldoCajaGeneral = parseFloat(s.saldoCajaGeneral) || 0;
-      if (Array.isArray(s.turnosActivos)) appData.turnosActivos = s.turnosActivos;
-      if (s.cajaChicaAbierta !== undefined) appData.cajaChicaAbierta = Boolean(s.cajaChicaAbierta);
-      if (typeof sincronizarLegacyCajaDesdeTurnos === 'function') sincronizarLegacyCajaDesdeTurnos();
-      if (s.cajeroActivoId !== undefined) appData.cajeroActivoId = s.cajeroActivoId;
-      if (s.cajeroActivoNombre !== undefined) appData.cajeroActivoNombre = s.cajeroActivoNombre;
-      if (Array.isArray(s.movimientosCajaChica)) appData.movimientosCajaChica = s.movimientosCajaChica;
-      if (Array.isArray(s.movimientosGenerales)) appData.movimientosGenerales = s.movimientosGenerales;
-      if (Array.isArray(s.transferenciasBancos)) appData.transferenciasBancos = s.transferenciasBancos;
-      if (Array.isArray(s.inventarioProductos)) appData.inventarioProductos = s.inventarioProductos;
-      if (Array.isArray(s.ventasContingencia)) appData.ventasContingencia = s.ventasContingencia;
-      if (Array.isArray(s.historialCierres)) appData.historialCierres = s.historialCierres;
-      if (Array.isArray(s.cierresMensuales)) appData.cierresMensuales = s.cierresMensuales;
-      if (Array.isArray(s.cierresMensualesEmpleados)) appData.cierresMensualesEmpleados = s.cierresMensualesEmpleados;
-      if (s.saldoBancoLoja !== undefined) appData.saldoBancoLoja = parseFloat(s.saldoBancoLoja) || 0;
-      if (s.saldoBancoPichincha !== undefined) appData.saldoBancoPichincha = parseFloat(s.saldoBancoPichincha) || 0;
-      if (Array.isArray(s.cxp)) appData.cxp = s.cxp;
-
-      if (typeof renderTodo === 'function') renderTodo();
-      await window.guardarEnNube();
-      alert('Respaldo restaurado y sincronizado en Supabase correctamente.');
-    } catch (err) {
-      console.error('Error importando respaldo:', err);
-      alert('Error al leer el archivo JSON: ' + err.message);
-    } finally {
-      event.target.value = '';
-    }
-  };
-
-  window._supaGuardar = async function () {
+  window.guardarEnNube = async function () {
     if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
     setStatus('syncing', 'Guardando en Supabase...');
 
@@ -121,8 +64,6 @@
             s.historialCierres.forEach(c => mapaCierres.set(String(c.id), c));
             (appData.historialCierres || []).forEach(c => mapaCierres.set(String(c.id), c));
             appData.historialCierres = Array.from(mapaCierres.values()).sort((a, b) => (b.id || 0) - (a.id || 0));
-        const seLimpioTurno = limpiarTurnosYaCerrados();
-        if (seLimpioTurno) huboNuevosLocales = true;
           }
           if (Array.isArray(s.turnosActivos) && appData.currentUser) {
             const miId = String(appData.currentUser.id);
@@ -137,7 +78,6 @@
             const misMovs = (appData.movimientosCajaChica || []).filter(m => esMovimientoDelUsuario(m, appData.currentUser));
             appData.movimientosCajaChica = [...otrosMovs, ...misMovs];
           }
-          if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
         }
       }
     } catch (e) {
@@ -145,6 +85,7 @@
     }
 
     limpiarTurnosYaCerrados();
+    if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
 
     const estadoActual = {
       usuarios: appData.usuarios,
@@ -190,7 +131,7 @@
     }
   };
 
-  window._supaCargar = async function (mostrarAviso = false) {
+  window.cargarDatosDesdeNube = async function (mostrarAviso = false) {
     setStatus('syncing', 'Cargando Supabase...');
     try {
       const res = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor', {
@@ -235,8 +176,10 @@
           }
         });
         appData.historialCierres = Array.from(mapaCierres.values()).sort((a, b) => (b.id || 0) - (a.id || 0));
-        const seLimpioTurno = limpiarTurnosYaCerrados();
-        if (seLimpioTurno) huboNuevosLocales = true;
+
+        if (limpiarTurnosYaCerrados()) {
+          huboNuevosLocales = true;
+        }
 
         if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
         if (typeof renderTodo === 'function') renderTodo();
@@ -255,7 +198,6 @@
     }
   };
 
-  // Inyectar columna CONTRASEÑA dentro de la tabla "Colaboradores Registrados" en Gestion de Personal
   function inyectarColumnaContrasenas() {
     if (typeof appData === 'undefined' || !Array.isArray(appData.usuarios)) return;
 
@@ -266,7 +208,6 @@
       const textoHeader = theadRow.textContent || '';
       if (!textoHeader.includes('ROL ASIGNADO') || !textoHeader.includes('ACCIONES')) return;
 
-      // Agregar encabezado CONTRASEÑA antes de ACCIONES si no existe
       if (!theadRow.querySelector('.th-clave-personal')) {
         const thAcciones = Array.from(theadRow.children).find(th => (th.textContent || '').includes('ACCIONES'));
         if (thAcciones) {
@@ -277,7 +218,6 @@
         }
       }
 
-      // Agregar celda con la clave y boton de ojito en cada fila de colaborador
       const filas = tabla.querySelectorAll('tbody tr');
       filas.forEach(tr => {
         if (tr.querySelector('.td-clave-personal')) return;
@@ -335,18 +275,10 @@
     });
   }
 
-  window.addEventListener('DOMContentLoaded', () => {
-    window.cargarDatosDesdeNube(false);
-    inyectarColumnaContrasenas();
-  });
+  window.cargarDatosDesdeNube(false);
+  inyectarColumnaContrasenas();
 
-  if (document.readyState !== 'loading') {
-    window.cargarDatosDesdeNube(false);
-    inyectarColumnaContrasenas();
-  }
-
-  setInterval(inyectarColumnaContrasenas, 600);
-
+  setInterval(inyectarColumnaContrasenas, 500);
   setInterval(() => {
     if (document.visibilityState === 'visible') {
       window.cargarDatosDesdeNube(false);
