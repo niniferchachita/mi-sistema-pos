@@ -22,6 +22,7 @@
       .no-print { display: none !important; }
     }
   </style>
+  <style id="pos-boot-cloak">body.pos-loading { opacity: 0 !important; pointer-events: none !important; } body { transition: opacity 0.12s ease-in; }</style>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans min-h-screen md:h-screen flex flex-col md:flex-row md:overflow-hidden">
 <!-- ==================== LOGIN ==================== -->
@@ -5245,6 +5246,6 @@
     restaurarSesionGuardada();
     cargarDatosDesdeNube(false);
   </script>
-  <script src="supabase-sync.js?v=17"></script>
+  <script src="supabase-sync.js?v=18"></script>
 </body>
 </html>

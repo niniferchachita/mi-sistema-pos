@@ -10,6 +10,11 @@
   let syncEnCurso = false;
   let fallosConsecutivos = 0;
 
+  function revelarInterfazPOS() {
+    if (document.body) document.body.classList.remove('pos-loading');
+  }
+  setTimeout(revelarInterfazPOS, 2500);
+
   function setStatus(estado, texto) {
     if (typeof actualizarIndicadorNube === 'function') {
       actualizarIndicadorNube(estado, texto);
@@ -126,6 +131,7 @@
       }
       fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
+      revelarInterfazPOS();
     } catch (err) {
       console.warn('Reintentando guardado Supabase:', err);
       fallosConsecutivos++;
@@ -202,10 +208,12 @@
       }
       fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
+      revelarInterfazPOS();
       if (mostrarAviso) alert('Datos sincronizados correctamente desde Supabase.');
     } catch (err) {
       console.warn('Microcorte de lectura Supabase:', err);
       fallosConsecutivos++;
+      revelarInterfazPOS();
       if (fallosConsecutivos >= 3) {
         setStatus('error', 'Sin red: Modo Local');
       }
