@@ -11,6 +11,8 @@
   let fallosConsecutivos = 0;
 
   function revelarInterfazPOS() {
+    window._supaListo = true;
+    document.documentElement.classList.add('pos-ready');
     if (document.body) document.body.classList.remove('pos-loading');
   }
   setTimeout(revelarInterfazPOS, 2500);
@@ -198,6 +200,7 @@
 
         if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
         if (typeof restaurarSesionGuardada === 'function' && (!appData || !appData.currentUser)) restaurarSesionGuardada();
+        window._supaListo = true;
         if (typeof renderTodo === 'function') renderTodo();
         else if (typeof renderCaja === 'function') renderCaja();
 

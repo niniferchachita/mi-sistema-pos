@@ -22,7 +22,7 @@
       .no-print { display: none !important; }
     }
   </style>
-    <style id="pos-boot-cloak">body.pos-loading { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }</style>
+    <style id="pos-boot-cloak">html:not(.pos-ready) body { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }</style>
 </head>
 <body class="pos-loading bg-gray-100 text-gray-800 font-sans min-h-screen md:h-screen flex flex-col md:flex-row md:overflow-hidden">
 <!-- ==================== LOGIN ==================== -->
@@ -4348,7 +4348,7 @@
       `).join('');
     }
 
-    function renderCaja() {
+    function renderCaja() { if (!window._supaListo) return;
       const esAdminOContador = appData.currentUser.rol === 'admin' || appData.currentUser.rol === 'contador';
 
       if (esAdminOContador) {
@@ -5246,6 +5246,6 @@
     restaurarSesionGuardada();
     cargarDatosDesdeNube(false);
   </script>
-  <script src="supabase-sync.js?v=21"></script>
+  <script src="supabase-sync.js?v=22"></script>
 </body>
 </html>
