@@ -132,6 +132,7 @@
       fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
       revelarInterfazPOS();
+      revelarInterfazPOS();
     } catch (err) {
       console.warn('Reintentando guardado Supabase:', err);
       fallosConsecutivos++;
@@ -197,6 +198,7 @@
         }
 
         if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
+        if (typeof restaurarSesionGuardada === 'function' && (!appData || !appData.currentUser)) restaurarSesionGuardada();
         if (typeof renderTodo === 'function') renderTodo();
         else if (typeof renderCaja === 'function') renderCaja();
 
@@ -209,10 +211,12 @@
       fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
       revelarInterfazPOS();
+      revelarInterfazPOS();
       if (mostrarAviso) alert('Datos sincronizados correctamente desde Supabase.');
     } catch (err) {
       console.warn('Microcorte de lectura Supabase:', err);
       fallosConsecutivos++;
+      revelarInterfazPOS();
       revelarInterfazPOS();
       if (fallosConsecutivos >= 3) {
         setStatus('error', 'Sin red: Modo Local');
