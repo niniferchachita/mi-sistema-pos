@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Sistema POS - Control de Caja, Bancos, Inventario y Contingencia</title>
@@ -1053,7 +1056,44 @@
           </div>
         </div>
 
-        <div class="md:col-span-2 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-200">
+            <div class="md:col-span-2 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-200 space-y-3">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div>
+          <h3 class="font-bold text-sm text-gray-700">Facturas Pendientes de Pago</h3>
+          <p class="text-[11px] text-gray-400">Mostrando <b id="cxpCountMostradas">0</b> factura(s) de <b id="cxpCountTotal">0</b></p>
+        </div>
+        <div class="relative w-full sm:w-64">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 text-xs">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </span>
+          <input type="text" id="buscadorCxPInput" oninput="renderCxP(this.value)"
+            class="w-full pl-8 pr-8 py-2 border border-gray-300 rounded-lg text-base sm:text-xs outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Buscar proveedor o factura...">
+          <button type="button" onclick="const i=document.getElementById('buscadorCxPInput'); if(i){i.value=''; renderCxP('');}"
+            title="Limpiar búsqueda" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-gray-600 text-xs">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs whitespace-nowrap">
+          <thead class="bg-gray-50 text-gray-500 uppercase border-b">
+            <tr>
+              <th class="p-2">Proveedor</th>
+              <th class="p-2">Documento</th>
+              <th class="p-2">Vence</th>
+              <th class="p-2 text-right">Saldo</th>
+              <th class="p-2 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="cxpTableBody" class="divide-y text-gray-700"></tbody>
+          <tfoot id="cxpTableFoot" class="bg-rose-50/80 border-t-2 border-rose-200 font-extrabold text-gray-900">
+            <tr>
+              <td colspan="3" class="p-2.5 text-right uppercase text-[11px] text-rose-900">
+                Total de lo que Debo:
+              </td>
+              <td class="p-2.5 text-right font-mono text-sm text-rose-700" id="totalDeudaCxPDisplay"><div class="md:col-span-2 bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-200">
           <h3 class="font-bold text-sm text-gray-700 mb-3">Facturas Pendientes de Pago</h3>
           <div class="overflow-x-auto">
             <table class="w-full text-left text-xs whitespace-nowrap">
@@ -1069,7 +1109,13 @@
               <tbody id="cxpTableBody" class="divide-y text-gray-700"></tbody>
             </table>
           </div>
-        </div>
+        </div>.00</td>
+              <td class="p-2.5"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
       </div>
     </section>
 
@@ -1619,6 +1665,7 @@
       currentUser: null,
       saldoCajaGeneral: localStorage.getItem('pos_caja_gen') !== null ? parseFloat(localStorage.getItem('pos_caja_gen')) : 0.00,
       cajaChicaAbierta: JSON.parse(localStorage.getItem('pos_caja_abierta')) || false,
+      turnosActivos: JSON.parse(localStorage.getItem('pos_turnos_activos')) || [],
       cajeroActivoId: parseInt(localStorage.getItem('pos_cajero_activo_id')) || null,
       cajeroActivoNombre: localStorage.getItem('pos_cajero_activo') || '',
       baseFijaCajaChica: 50.00,
@@ -1713,6 +1760,7 @@
     function guardarEnLocalStorage() {
       localStorage.setItem('pos_caja_gen', appData.saldoCajaGeneral.toFixed(2));
       localStorage.setItem('pos_caja_abierta', JSON.stringify(appData.cajaChicaAbierta));
+      localStorage.setItem('pos_turnos_activos', JSON.stringify(obtenerTurnosActivos()));
       if (appData.cajeroActivoId !== null) localStorage.setItem('pos_cajero_activo_id', String(appData.cajeroActivoId));
       else localStorage.removeItem('pos_cajero_activo_id');
       localStorage.setItem('pos_cajero_activo', appData.cajeroActivoNombre || '');
@@ -1729,46 +1777,86 @@
     }
 
     async function guardarEnNube() {
-      guardarEnLocalStorage();
-      if (window.location.protocol === 'file:') {
-        actualizarIndicadorNube('offline', 'Modo Local (Sin Cloudflare)');
-        return;
+      guardarDatosLocales();
+      if (typeof actualizarIndicadorNube === 'function') {
+        actualizarIndicadorNube('syncing', 'Guardando en D1...');
       }
 
-      actualizarIndicadorNube('syncing', 'Guardando en D1...');
       try {
-        const payload = {
-          state: {
-            saldoCajaGeneral: appData.saldoCajaGeneral,
-            cajaChicaAbierta: appData.cajaChicaAbierta,
-            cajeroActivoId: appData.cajeroActivoId,
-            cajeroActivoNombre: appData.cajeroActivoNombre,
-            movimientosCajaChica: appData.movimientosCajaChica,
-            movimientosGenerales: appData.movimientosGenerales,
-            transferenciasBancos: appData.transferenciasBancos,
-            inventarioProductos: appData.inventarioProductos,
-            ventasContingencia: appData.ventasContingencia,
-            historialCierres: appData.historialCierres,
-            cierresMensuales: appData.cierresMensuales,
-            cierresMensualesEmpleados: appData.cierresMensualesEmpleados,
-            cxp: appData.cxp,
-            usuarios: appData.usuarios
+        // Pre-combinar con la nube para no pisar cierres ni turnos activos de otros cajeros
+        const resGet = await fetch('/api/sync?t=' + Date.now(), { cache: 'no-store' });
+        if (resGet.ok) {
+          const dataGet = await resGet.json();
+          if (dataGet && dataGet.initialized && dataGet.state) {
+            const s = dataGet.state;
+            if (Array.isArray(s.historialCierres)) {
+              const mapaCierres = new Map();
+              s.historialCierres.forEach(c => mapaCierres.set(String(c.id), c));
+              (appData.historialCierres || []).forEach(c => mapaCierres.set(String(c.id), c));
+              appData.historialCierres = Array.from(mapaCierres.values()).sort((a, b) => (b.id || 0) - (a.id || 0));
+            }
+            if (Array.isArray(s.turnosActivos) && appData.currentUser) {
+              const miId = String(appData.currentUser.id);
+              const miNombre = appData.currentUser.nombre;
+              const otrosTurnos = s.turnosActivos.filter(t => String(t.id) !== miId && t.nombre !== miNombre);
+              const miTurnoActual = (appData.turnosActivos || []).filter(t => String(t.id) === miId || t.nombre === miNombre);
+              appData.turnosActivos = [...otrosTurnos, ...miTurnoActual];
+              if (typeof sincronizarLegacyCajaDesdeTurnos === 'function') {
+                sincronizarLegacyCajaDesdeTurnos();
+              }
+            }
+            if (Array.isArray(s.movimientosCajaChica) && appData.currentUser && typeof esMovimientoDelUsuario === 'function') {
+              const otrosMovs = s.movimientosCajaChica.filter(m => !esMovimientoDelUsuario(m, appData.currentUser));
+              const misMovs = (appData.movimientosCajaChica || []).filter(m => esMovimientoDelUsuario(m, appData.currentUser));
+              appData.movimientosCajaChica = [...otrosMovs, ...misMovs];
+            }
+            guardarDatosLocales();
           }
-        };
+        }
+      } catch (e) {
+        console.warn('Pre-combinacion omitida:', e);
+      }
 
+      const payload = {
+        state: {
+          usuarios: appData.usuarios,
+          saldoCajaGeneral: appData.saldoCajaGeneral,
+          cajaChicaAbierta: appData.cajaChicaAbierta,
+          turnosActivos: typeof obtenerTurnosActivos === 'function' ? obtenerTurnosActivos() : (appData.turnosActivos || []),
+          cajeroActivoId: appData.cajeroActivoId,
+          cajeroActivoNombre: appData.cajeroActivoNombre,
+          movimientosCajaChica: appData.movimientosCajaChica,
+          movimientosGenerales: appData.movimientosGenerales,
+          transferenciasBancos: appData.transferenciasBancos,
+          inventarioProductos: appData.inventarioProductos,
+          ventasContingencia: appData.ventasContingencia,
+          historialCierres: appData.historialCierres,
+          cierresMensuales: appData.cierresMensuales,
+          cierresMensualesEmpleados: appData.cierresMensualesEmpleados,
+          saldoBancoLoja: appData.saldoBancoLoja,
+          saldoBancoPichincha: appData.saldoBancoPichincha,
+          cxp: appData.cxp
+        }
+      };
+
+      try {
         const res = await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (data.ok) {
-          actualizarIndicadorNube('ok', 'D1 Sincronizado');
-        } else {
-          actualizarIndicadorNube('error', 'Revisar enlace D1');
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'Error guardando en D1');
         }
-      } catch (e) {
-        actualizarIndicadorNube('offline', 'Offline (Guardado local)');
+        if (typeof actualizarIndicadorNube === 'function') {
+          actualizarIndicadorNube('ok', 'Cloudflare D1 Sincronizado');
+        }
+      } catch (err) {
+        console.error('Error sincronizando con D1:', err);
+        if (typeof actualizarIndicadorNube === 'function') {
+          actualizarIndicadorNube('error', 'D1 Error: Guardado Local');
+        }
       }
     }
 
@@ -1780,13 +1868,18 @@
 
       actualizarIndicadorNube('syncing', 'Cargando D1...');
       try {
-        const res = await fetch('/api/sync');
+        const res = await fetch('/api/sync?t=' + Date.now(), { cache: 'no-store' });
         const data = await res.json();
+
+        const cierresLocalesAntes = JSON.parse(localStorage.getItem('pos_cierres') || '[]');
 
         if (data.ok && data.initialized && data.state) {
           const s = data.state;
+          if (Array.isArray(s.usuarios)) appData.usuarios = s.usuarios;
           if (s.saldoCajaGeneral !== undefined) appData.saldoCajaGeneral = parseFloat(s.saldoCajaGeneral) || 0;
+          if (Array.isArray(s.turnosActivos)) appData.turnosActivos = s.turnosActivos;
           if (s.cajaChicaAbierta !== undefined) appData.cajaChicaAbierta = Boolean(s.cajaChicaAbierta);
+          if (typeof sincronizarLegacyCajaDesdeTurnos === 'function') sincronizarLegacyCajaDesdeTurnos();
           if (s.cajeroActivoId !== undefined) appData.cajeroActivoId = s.cajeroActivoId;
           if (s.cajeroActivoNombre !== undefined) appData.cajeroActivoNombre = s.cajeroActivoNombre;
           if (Array.isArray(s.movimientosCajaChica)) appData.movimientosCajaChica = s.movimientosCajaChica;
@@ -1794,36 +1887,39 @@
           if (Array.isArray(s.transferenciasBancos)) appData.transferenciasBancos = s.transferenciasBancos;
           if (Array.isArray(s.inventarioProductos)) appData.inventarioProductos = s.inventarioProductos;
           if (Array.isArray(s.ventasContingencia)) appData.ventasContingencia = s.ventasContingencia;
-          if (Array.isArray(s.historialCierres)) appData.historialCierres = s.historialCierres;
           if (Array.isArray(s.cierresMensuales)) appData.cierresMensuales = s.cierresMensuales;
           if (Array.isArray(s.cierresMensualesEmpleados)) appData.cierresMensualesEmpleados = s.cierresMensualesEmpleados;
+          if (s.saldoBancoLoja !== undefined) appData.saldoBancoLoja = parseFloat(s.saldoBancoLoja) || 0;
+          if (s.saldoBancoPichincha !== undefined) appData.saldoBancoPichincha = parseFloat(s.saldoBancoPichincha) || 0;
           if (Array.isArray(s.cxp)) appData.cxp = s.cxp;
-          if (Array.isArray(s.usuarios) && s.usuarios.length > 0) appData.usuarios = s.usuarios;
 
-          guardarEnLocalStorage();
-          actualizarIndicadorNube('ok', 'Cloudflare D1 Conectado');
-
-          if (appData.currentUser) {
-            const usuarioActualizado = appData.usuarios.find(u => u.id === appData.currentUser.id);
-            if (usuarioActualizado) {
-              appData.currentUser = usuarioActualizado;
-              document.getElementById('currentUserDisplay').innerText = usuarioActualizado.nombre;
-              document.getElementById('currentRoleDisplay').innerText = usuarioActualizado.rol;
-              document.getElementById('mobileCurrentUserDisplay').innerText = `${usuarioActualizado.nombre} (${usuarioActualizado.rol})`;
+          // Combinar cierres de la nube con cualquier cierre local pendiente de subir
+          const nubeCierres = Array.isArray(s.historialCierres) ? s.historialCierres : [];
+          const mapaCierres = new Map();
+          nubeCierres.forEach(c => mapaCierres.set(String(c.id), c));
+          let huboNuevosLocales = false;
+          cierresLocalesAntes.forEach(c => {
+            if (c && c.id && !mapaCierres.has(String(c.id))) {
+              mapaCierres.set(String(c.id), c);
+              huboNuevosLocales = true;
             }
-            renderAll();
-          } else {
-            restaurarSesionGuardada();
-          }
+          });
+          appData.historialCierres = Array.from(mapaCierres.values()).sort((a, b) => (b.id || 0) - (a.id || 0));
 
-          if (mostrarAviso) alert('Datos sincronizados correctamente desde Cloudflare D1.');
-        } else if (data.ok && !data.initialized) {
-          await guardarEnNube();
-        } else {
-          actualizarIndicadorNube('error', 'Enlazar D1 en Cloudflare');
+          guardarDatosLocales();
+          if (typeof renderTodo === 'function') renderTodo();
+          else if (typeof renderCaja === 'function') renderCaja();
+
+          if (huboNuevosLocales) {
+            await guardarEnNube();
+            return;
+          }
         }
-      } catch (e) {
-        actualizarIndicadorNube('offline', 'Modo Local (Sin conexión)');
+        actualizarIndicadorNube('ok', 'Cloudflare D1 Sincronizado');
+        if (mostrarAviso) alert('Datos sincronizados correctamente desde Cloudflare D1.');
+      } catch (err) {
+        console.error('Error cargando desde D1:', err);
+        actualizarIndicadorNube('error', 'D1 Error: Modo Local');
       }
     }
 
@@ -3122,7 +3218,7 @@
       const incluirTodo = document.getElementById('cmIncluirTodoHistorico')?.checked ?? false;
       const periodoLabel = incluirTodo ? `${periodo} (Acumulado)` : periodo;
 
-      if (appData.cajaChicaAbierta && appData.cajeroActivoId === userId) {
+      if (obtenerTurnosActivos().some(t => String(t.id) === String(userId))) {
         return alert('Este cajero aún tiene un turno abierto en mostrador. Pídele que cierre su turno primero.');
       }
 
@@ -3257,6 +3353,7 @@
         periodo,
         incluirTodo,
         cajaChicaAbierta: appData.cajaChicaAbierta,
+            turnosActivos: obtenerTurnosActivos(),
         cajeroActivoNombre: appData.cajeroActivoNombre,
         ingCierresAprobados,
         ingOtrosGeneral,
@@ -3664,33 +3761,146 @@
       }
     }
 
-    // --- CAJA CHICA & AUDITORÍA ---
-    function esTurnoDeEsteCajero() {
-      if (!appData.cajaChicaAbierta || !appData.currentUser) return false;
-      if (appData.cajeroActivoId !== null) {
-        return appData.cajeroActivoId === appData.currentUser.id;
+        // --- CAJA CHICA & AUDITORÍA (MÚLTIPLES CAJEROS SIMULTÁNEOS) ---
+    function obtenerTurnosActivos() {
+      if (!Array.isArray(appData.turnosActivos)) {
+        appData.turnosActivos = [];
       }
-      return appData.cajeroActivoNombre === appData.currentUser.nombre;
+      if (appData.cajaChicaAbierta && (appData.cajeroActivoId !== null || appData.cajeroActivoNombre)) {
+        const yaExiste = appData.turnosActivos.some(t =>
+          (appData.cajeroActivoId !== null && String(t.id) === String(appData.cajeroActivoId)) ||
+          (appData.cajeroActivoNombre && t.nombre === appData.cajeroActivoNombre)
+        );
+        if (!yaExiste) {
+          appData.turnosActivos.push({
+            id: appData.cajeroActivoId,
+            nombre: appData.cajeroActivoNombre || 'Cajero'
+          });
+        }
+      }
+      return appData.turnosActivos;
+    }
+
+    function sincronizarLegacyCajaDesdeTurnos() {
+      const activos = obtenerTurnosActivos();
+      appData.cajaChicaAbierta = activos.length > 0;
+      appData.cajeroActivoId = activos.length > 0 ? activos[0].id : null;
+      appData.cajeroActivoNombre = activos.map(t => t.nombre).join(', ');
+    }
+
+    function esTurnoDeEsteCajero() {
+      if (!appData.currentUser) return false;
+      const activos = obtenerTurnosActivos();
+      return activos.some(t =>
+        (t.id !== null && String(t.id) === String(appData.currentUser.id)) ||
+        t.nombre === appData.currentUser.nombre
+      );
     }
 
     function abrirCajaCajero() {
-      if (appData.cajaChicaAbierta) {
-        if (esTurnoDeEsteCajero()) {
-          return alert('Ya tienes un turno de caja abierto.');
-        } else {
-          return alert('La caja de mostrador ya tiene un turno activo en curso. Debe cerrarse antes de abrir uno nuevo.');
-        }
+      if (esTurnoDeEsteCajero()) {
+        return alert('Ya tienes un turno de caja abierto.');
       }
 
-      appData.cajaChicaAbierta = true;
-      appData.cajeroActivoId = appData.currentUser.id;
-      appData.cajeroActivoNombre = appData.currentUser.nombre;
-      appData.movimientosCajaChica = [];
+      const activos = obtenerTurnosActivos();
+      activos.push({
+        id: appData.currentUser.id,
+        nombre: appData.currentUser.nombre,
+        fechaApertura: new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+      });
+      sincronizarLegacyCajaDesdeTurnos();
+
+      appData.movimientosCajaChica = appData.movimientosCajaChica.filter(
+        m => !esMovimientoDelUsuario(m, appData.currentUser)
+      );
       appData.ultimoDesgloseConteo = [];
 
       guardarEnNube();
 
-      alert(`Turno iniciado por ${appData.cajeroActivoNombre}.\nRecuerda: Los $${appData.baseFijaCajaChica.toFixed(2)} iniciales son fondo fijo de cambio y NO se cuentan ni se entregan al cerrar.`);
+      alert(`Turno iniciado por ${appData.currentUser.nombre}.\nRecuerda: Los ${appData.baseFijaCajaChica.toFixed(2)} iniciales son fondo fijo de cambio y NO se cuentan ni se entregan al cerrar.`);
+      renderCaja();
+      renderMovimientos();
+    }
+
+    function calcularSaldoNetoTurno() {
+      if (!esTurnoDeEsteCajero()) return 0;
+      let neto = 0;
+      appData.movimientosCajaChica
+        .filter(m => esMovimientoDelUsuario(m, appData.currentUser))
+        .forEach(m => {
+          neto += m.tipo === 'ingreso' ? m.monto : -m.monto;
+        });
+      return parseFloat(neto.toFixed(2));
+    }
+
+    function cerrarCajaCajero() {
+      if (!esTurnoDeEsteCajero()) {
+        return alert('No tienes ningún turno de caja abierto para cerrar.');
+      }
+
+      const valorInput = document.getElementById('montoCierre').value.trim();
+      const contado = parseFloat(valorInput);
+
+      let noContoDinero = false;
+      let montoFinalContado = contado;
+
+      if (valorInput === '' || isNaN(contado)) {
+        if (!confirm('No has ingresado el conteo de dinero físico a entregar. ¿Deseas cerrar el turno marcando que NO se contó el dinero para revisión del administrador?')) {
+          return;
+        }
+        noContoDinero = true;
+        montoFinalContado = 0;
+      }
+
+      const esperadoEntregar = calcularSaldoNetoTurno();
+      const dif = parseFloat((montoFinalContado - esperadoEntregar).toFixed(2));
+      const desgloseGuardado = Array.isArray(appData.ultimoDesgloseConteo) ? JSON.parse(JSON.stringify(appData.ultimoDesgloseConteo)) : [];
+      const usoContador = desgloseGuardado.length > 0;
+
+      const nuevoCierre = {
+        id: Date.now(),
+        fechaHora: new Date().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }),
+        cajeroId: appData.currentUser.id,
+        cajeroNombre: appData.currentUser.nombre,
+        baseInicial: appData.baseFijaCajaChica,
+        saldoTeorico: esperadoEntregar,
+        montoContado: montoFinalContado,
+        diferencia: dif,
+        noContoDinero: noContoDinero,
+        usoContador: usoContador,
+        desglose: desgloseGuardado,
+        aprobadoCajaGeneral: false,
+        montoSumadoCajaGeneral: 0,
+        observacionAdmin: noContoDinero ? 'ALERTA: Cajero cerró turno sin contar el dinero.' : ''
+      };
+
+      appData.historialCierres.unshift(nuevoCierre);
+
+      appData.turnosActivos = obtenerTurnosActivos().filter(t =>
+        !((t.id !== null && String(t.id) === String(appData.currentUser.id)) || t.nombre === appData.currentUser.nombre)
+      );
+      sincronizarLegacyCajaDesdeTurnos();
+
+      appData.movimientosCajaChica = appData.movimientosCajaChica.filter(
+        m => !esMovimientoDelUsuario(m, appData.currentUser)
+      );
+      appData.ultimoDesgloseConteo = [];
+
+      guardarEnNube();
+
+      document.getElementById('montoCierre').value = '';
+      document.getElementById('badgeDesgloseCierre').classList.add('hidden');
+      limpiarContadorDinero();
+
+      const msgResultado = noContoDinero 
+        ? 'Cierre enviado SIN CONTEO DE EFECTIVO. Queda pendiente de revisión administrativa.'
+        : Math.abs(dif) < 0.01 
+          ? '¡Caja Cuadrada! Enviada al administrador para aprobación.' 
+          : dif > 0 
+            ? `Sobrante detectado: +${dif.toFixed(2)}. Enviado a revisión.` 
+            : `Faltante detectado: -${Math.abs(dif).toFixed(2)}. Enviado a revisión.`;
+
+      alert(`Turno cerrado (los $50.00 fijos quedan en caja).\nBalance Esperado Turno: ${esperadoEntregar.toFixed(2)}\nEfectivo Entregado: ${montoFinalContado.toFixed(2)}\nResultado: ${msgResultado}`);
       renderCaja();
       renderMovimientos();
     }
@@ -4026,8 +4236,9 @@
 
       if (esAdminOContador) {
         document.getElementById('saldoCajaGeneralDisplay').innerText = `$${appData.saldoCajaGeneral.toFixed(2)}`;
-        document.getElementById('cajasChicasActivasCount').innerText = appData.cajaChicaAbierta 
-          ? `1 activa (${appData.cajeroActivoNombre})` 
+                const activosAhora = obtenerTurnosActivos();
+        document.getElementById('cajasChicasActivasCount').innerText = activosAhora.length
+          ? `${activosAhora.length} activa(s) (${activosAhora.map(t => t.nombre).join(', ')})`
           : '0 cajeros activos';
 
         document.getElementById('totalCierresAuditCount').innerText = appData.historialCierres.length;
@@ -4685,27 +4896,54 @@
       alert(`Pago de $${abono.toFixed(2)} a ${fac.acreedor} registrado mediante ${medio}.`);
     }
 
-    function renderCxP() {
-      const tbody = document.getElementById('cxpTableBody');
-      const activas = appData.cxp.filter(f => f.saldo > 0);
-      if (!activas.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400">No hay facturas pendientes.</td></tr>';
-        return;
-      }
-      tbody.innerHTML = activas.map(f => `
-        <tr>
-          <td class="p-2 font-semibold">${f.acreedor}</td>
-          <td class="p-2">${f.doc}</td>
-          <td class="p-2 text-rose-600 font-medium">${f.vence}</td>
-          <td class="p-2 text-right font-mono font-bold">$${f.saldo.toFixed(2)}</td>
-          <td class="p-2 text-center space-x-1 whitespace-nowrap">
-            <button onclick="abonarCxP(${f.id})" class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded border border-emerald-200 hover:bg-emerald-100 font-semibold text-[11px]">Pagar / Abonar</button>
-            <button onclick="editarFacturaCxP(${f.id})" class="text-amber-600 hover:text-amber-800 p-1" title="Editar factura"><i class="fa-solid fa-pen"></i></button>
-            <button onclick="eliminarFacturaCxP(${f.id})" class="text-rose-600 hover:text-rose-800 p-1" title="Eliminar factura"><i class="fa-solid fa-trash"></i></button>
-          </td>
-        </tr>
-      `).join('');
-    }
+    function renderCxP(filtroTexto = '') {
+  const tbody = document.getElementById('cxpTableBody');
+  if (!tbody) return;
+
+  const q = String(filtroTexto !== undefined && filtroTexto !== null && typeof filtroTexto === 'string'
+    ? filtroTexto
+    : (document.getElementById('buscadorCxPInput')?.value || '')).trim().toLowerCase();
+
+  const activas = appData.cxp.filter(f => f.saldo > 0);
+  const filtradas = q
+    ? activas.filter(f =>
+        String(f.acreedor || '').toLowerCase().includes(q) ||
+        String(f.doc || '').toLowerCase().includes(q) ||
+        String(f.vence || '').toLowerCase().includes(q)
+      )
+    : activas;
+
+  const totalDeuda = parseFloat(
+    filtradas.reduce((acc, f) => acc + (parseFloat(f.saldo) || 0), 0).toFixed(2)
+  );
+
+  const countMostradasEl = document.getElementById('cxpCountMostradas');
+  const countTotalEl = document.getElementById('cxpCountTotal');
+  const totalDeudaEl = document.getElementById('totalDeudaCxPDisplay');
+
+  if (countMostradasEl) countMostradasEl.innerText = filtradas.length;
+  if (countTotalEl) countTotalEl.innerText = activas.length;
+  if (totalDeudaEl) totalDeudaEl.innerText = `$${totalDeuda.toFixed(2)}`;
+
+  if (!filtradas.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">${q ? 'No se encontraron facturas con ese proveedor o documento.' : 'No hay facturas pendientes.'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtradas.map(f => `
+    <tr>
+      <td class="p-2 font-semibold">${f.acreedor}</td>
+      <td class="p-2 font-mono">${f.doc}</td>
+      <td class="p-2 text-rose-600 font-medium">${f.vence}</td>
+      <td class="p-2 text-right font-mono font-bold">$${f.saldo.toFixed(2)}</td>
+      <td class="p-2 text-center space-x-1 whitespace-nowrap">
+        <button onclick="abonarCxP(${f.id})" class="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded border border-emerald-200 hover:bg-emerald-100 font-semibold text-[11px]">Pagar / Abonar</button>
+        <button onclick="editarFacturaCxP(${f.id})" class="text-amber-600 hover:text-amber-800 p-1" title="Editar factura"><i class="fa-solid fa-pen"></i></button>
+        <button onclick="eliminarFacturaCxP(${f.id})" class="text-rose-600 hover:text-rose-800 p-1" title="Eliminar factura"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
 
     // --- CONCILIACIÓN PCGERENTE ---
     function procesarArchivoPcGerente() {
