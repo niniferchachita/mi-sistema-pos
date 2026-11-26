@@ -202,6 +202,7 @@
         if (typeof restaurarSesionGuardada === 'function' && (!appData || !appData.currentUser)) restaurarSesionGuardada();
         window._supaListo = true;
         if (typeof renderTodo === 'function') renderTodo();
+        if (typeof renderBancos === 'function') renderBancos();
         else if (typeof renderCaja === 'function') renderCaja();
 
         if (huboNuevosLocales) {

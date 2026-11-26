@@ -4348,7 +4348,7 @@
       `).join('');
     }
 
-    function renderCaja() { if (!window._supaListo) return;
+    function renderCaja() {
       const esAdminOContador = appData.currentUser.rol === 'admin' || appData.currentUser.rol === 'contador';
 
       if (esAdminOContador) {
@@ -5246,6 +5246,6 @@
     restaurarSesionGuardada();
     cargarDatosDesdeNube(false);
   </script>
-  <script src="supabase-sync.js?v=22"></script>
+  <script src="supabase-sync.js?v=23"></script>
 </body>
 </html>
