@@ -2034,7 +2034,7 @@
       window._supaAutoSyncStarted = true;
       setInterval(() => {
         if (document.visibilityState === 'visible') {
-          // delegado a supabase-sync.js
+          cargarDatosDesdeNube(false);
         }
       }, 15000);
     }
@@ -2084,7 +2084,7 @@
       const btn = document.getElementById('btnLoginSubmit');
       btn.disabled = true;
       btn.innerText = 'Verificando...';
-      await // delegado a supabase-sync.js
+      await cargarDatosDesdeNube(false);
       btn.disabled = false;
       btn.innerText = 'Iniciar Sesión';
 
@@ -5243,8 +5243,8 @@
     // Inicializar inputs, restaurar sesión si estaba abierta y sincronizar con Cloudflare D1
     inicializarInputsContador();
     restaurarSesionGuardada();
-    // delegado a supabase-sync.js
+    cargarDatosDesdeNube(false);
   </script>
-  <script src="supabase-sync.js?v=12"></script>
+  <script src="supabase-sync.js?v=13"></script>
 </body>
 </html>
