@@ -1776,6 +1776,50 @@
       localStorage.setItem('pos_users_v2', JSON.stringify(appData.usuarios));
     }
 
+        async function importarRespaldoJSON(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const texto = await file.text();
+        const parsed = JSON.parse(texto);
+        const s = parsed.state ? parsed.state : parsed;
+        if (!s || typeof s !== 'object') {
+          return alert('El archivo JSON no contiene un respaldo válido del POS.');
+        }
+        if (!confirm('¿Restaurar todos los datos desde este archivo de respaldo y subirlos a la base de datos conectada?')) {
+          event.target.value = '';
+          return;
+        }
+        if (Array.isArray(s.usuarios)) appData.usuarios = s.usuarios;
+        if (s.saldoCajaGeneral !== undefined) appData.saldoCajaGeneral = parseFloat(s.saldoCajaGeneral) || 0;
+        if (Array.isArray(s.turnosActivos)) appData.turnosActivos = s.turnosActivos;
+        if (s.cajaChicaAbierta !== undefined) appData.cajaChicaAbierta = Boolean(s.cajaChicaAbierta);
+        if (typeof sincronizarLegacyCajaDesdeTurnos === 'function') sincronizarLegacyCajaDesdeTurnos();
+        if (s.cajeroActivoId !== undefined) appData.cajeroActivoId = s.cajeroActivoId;
+        if (s.cajeroActivoNombre !== undefined) appData.cajeroActivoNombre = s.cajeroActivoNombre;
+        if (Array.isArray(s.movimientosCajaChica)) appData.movimientosCajaChica = s.movimientosCajaChica;
+        if (Array.isArray(s.movimientosGenerales)) appData.movimientosGenerales = s.movimientosGenerales;
+        if (Array.isArray(s.transferenciasBancos)) appData.transferenciasBancos = s.transferenciasBancos;
+        if (Array.isArray(s.inventarioProductos)) appData.inventarioProductos = s.inventarioProductos;
+        if (Array.isArray(s.ventasContingencia)) appData.ventasContingencia = s.ventasContingencia;
+        if (Array.isArray(s.historialCierres)) appData.historialCierres = s.historialCierres;
+        if (Array.isArray(s.cierresMensuales)) appData.cierresMensuales = s.cierresMensuales;
+        if (Array.isArray(s.cierresMensualesEmpleados)) appData.cierresMensualesEmpleados = s.cierresMensualesEmpleados;
+        if (s.saldoBancoLoja !== undefined) appData.saldoBancoLoja = parseFloat(s.saldoBancoLoja) || 0;
+        if (s.saldoBancoPichincha !== undefined) appData.saldoBancoPichincha = parseFloat(s.saldoBancoPichincha) || 0;
+        if (Array.isArray(s.cxp)) appData.cxp = s.cxp;
+
+        if (typeof renderTodo === 'function') renderTodo();
+        await guardarEnNube();
+        alert('Respaldo restaurado y sincronizado en la nube correctamente.');
+      } catch (err) {
+        console.error('Error importando respaldo:', err);
+        alert('No se pudo leer el archivo JSON: ' + err.message);
+      } finally {
+        event.target.value = '';
+      }
+    }
+
     async function guardarEnNube() {
       guardarDatosLocales();
       if (typeof actualizarIndicadorNube === 'function') {
