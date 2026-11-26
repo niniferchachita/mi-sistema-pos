@@ -3,7 +3,7 @@
   const SUPABASE_KEY = 'sb_publishable_7gWi3OVesqwC3Kzm7ubILw__Sc3hOsb';
   const SUPABASE_HEADERS = {
     'apikey': SUPABASE_KEY,
-    'Authorization': 'Bearer ' + SUPABASE_KEY,
+    
     'Content-Type': 'application/json'
   };
 
