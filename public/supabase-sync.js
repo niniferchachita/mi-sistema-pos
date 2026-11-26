@@ -40,6 +40,19 @@
     return false;
   }
 
+  window._supaReady = true;
+  // Evitar que el script inline de index.html sobrescriba nuestras funciones con las viejas
+  Object.defineProperty(window, 'guardarEnNube', {
+    get() { return window._supaGuardar; },
+    set(fn) { if (!window._supaGuardar) window._supaGuardar = fn; },
+    configurable: true
+  });
+  Object.defineProperty(window, 'cargarDatosDesdeNube', {
+    get() { return window._supaCargar; },
+    set(fn) { if (!window._supaCargar) window._supaCargar = fn; },
+    configurable: true
+  });
+
   function setStatus(estado, texto) {
     if (typeof actualizarIndicadorNube === 'function') {
       actualizarIndicadorNube(estado, texto);
@@ -90,7 +103,7 @@
     }
   };
 
-  window.guardarEnNube = async function () {
+  window._supaGuardar = async function () {
     if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
     setStatus('syncing', 'Guardando en Supabase...');
 
@@ -177,7 +190,7 @@
     }
   };
 
-  window.cargarDatosDesdeNube = async function (mostrarAviso = false) {
+  window._supaCargar = async function (mostrarAviso = false) {
     setStatus('syncing', 'Cargando Supabase...');
     try {
       const res = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor', {
