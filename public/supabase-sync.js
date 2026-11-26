@@ -132,7 +132,6 @@
       fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
       revelarInterfazPOS();
-      revelarInterfazPOS();
     } catch (err) {
       console.warn('Reintentando guardado Supabase:', err);
       fallosConsecutivos++;
@@ -210,7 +209,6 @@
       }
       fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
-      revelarInterfazPOS();
       revelarInterfazPOS();
       if (mostrarAviso) alert('Datos sincronizados correctamente desde Supabase.');
     } catch (err) {
