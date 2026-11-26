@@ -7,6 +7,39 @@
     'Content-Type': 'application/json'
   };
 
+  function limpiarTurnosYaCerrados() {
+    if (typeof appData === 'undefined' || !Array.isArray(appData.turnosActivos)) return false;
+    const cierres = Array.isArray(appData.historialCierres) ? appData.historialCierres : [];
+    const ahora = Date.now();
+    const doceHorasMs = 12 * 60 * 60 * 1000;
+    const antes = appData.turnosActivos.length;
+
+    appData.turnosActivos = appData.turnosActivos.filter(t => {
+      const tId = String(t.id || '');
+      const tNombre = (t.nombre || '').trim().toUpperCase();
+      const tieneCierreReciente = cierres.some(c => {
+        const cId = String(c.cajeroId || c.usuarioId || '');
+        const cNombre = (c.cajero || c.cajeroNombre || c.usuario || '').trim().toUpperCase();
+        const mismoCajero = (tId && cId && tId === cId) || (tNombre && cNombre && tNombre === cNombre);
+        if (!mismoCajero) return false;
+        const ts = typeof c.id === 'number' && c.id > 1000000000000 ? c.id : 0;
+        if (ts > 0) {
+          const abiertoEn = typeof t.abiertoEn === 'number' ? t.abiertoEn : (typeof t.inicioTs === 'number' ? t.inicioTs : 0);
+          if (abiertoEn > 0) return ts >= abiertoEn;
+          return (ahora - ts) < doceHorasMs;
+        }
+        return false;
+      });
+      return !tieneCierreReciente;
+    });
+
+    if (appData.turnosActivos.length !== antes) {
+      if (typeof sincronizarLegacyCajaDesdeTurnos === 'function') sincronizarLegacyCajaDesdeTurnos();
+      return true;
+    }
+    return false;
+  }
+
   function setStatus(estado, texto) {
     if (typeof actualizarIndicadorNube === 'function') {
       actualizarIndicadorNube(estado, texto);
@@ -75,6 +108,8 @@
             s.historialCierres.forEach(c => mapaCierres.set(String(c.id), c));
             (appData.historialCierres || []).forEach(c => mapaCierres.set(String(c.id), c));
             appData.historialCierres = Array.from(mapaCierres.values()).sort((a, b) => (b.id || 0) - (a.id || 0));
+        const seLimpioTurno = limpiarTurnosYaCerrados();
+        if (seLimpioTurno) huboNuevosLocales = true;
           }
           if (Array.isArray(s.turnosActivos) && appData.currentUser) {
             const miId = String(appData.currentUser.id);
@@ -95,6 +130,8 @@
     } catch (e) {
       console.warn('Pre-combinacion Supabase omitida:', e);
     }
+
+    limpiarTurnosYaCerrados();
 
     const estadoActual = {
       usuarios: appData.usuarios,
@@ -185,6 +222,8 @@
           }
         });
         appData.historialCierres = Array.from(mapaCierres.values()).sort((a, b) => (b.id || 0) - (a.id || 0));
+        const seLimpioTurno = limpiarTurnosYaCerrados();
+        if (seLimpioTurno) huboNuevosLocales = true;
 
         if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
         if (typeof renderTodo === 'function') renderTodo();
