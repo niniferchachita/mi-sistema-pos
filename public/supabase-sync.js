@@ -3,7 +3,7 @@
   const SUPABASE_KEY = 'sb_publishable_7gWi3OVesqwC3Kzm7ubILw__Sc3hOsb';
   const SUPABASE_HEADERS = {
     'apikey': SUPABASE_KEY,
-    
+    'Authorization': 'Bearer ' + SUPABASE_KEY,
     'Content-Type': 'application/json'
   };
 
@@ -131,12 +131,12 @@
       });
       if (!res.ok) {
         const errTxt = await res.text();
-        throw new Error(errTxt || 'Error guardando en Supabase');
+        throw new Error(errTxt || ('HTTP ' + res.status));
       }
       setStatus('ok', 'Supabase Conectado');
     } catch (err) {
       console.error('Error guardando en Supabase:', err);
-      setStatus('error', 'Error Supabase: Local');
+      setStatus('error', 'Error Supabase: ' + (err.message || 'Local').slice(0, 28));
     }
   };
 
@@ -147,7 +147,10 @@
         headers: SUPABASE_HEADERS,
         cache: 'no-store'
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) {
+        const errTxt = await res.text();
+        throw new Error(errTxt || ('HTTP ' + res.status));
+      }
       const rows = await res.json();
       const cierresLocalesAntes = JSON.parse(localStorage.getItem('pos_cierres') || '[]');
 
@@ -196,7 +199,7 @@
       if (mostrarAviso) alert('Datos sincronizados correctamente desde Supabase.');
     } catch (err) {
       console.error('Error cargando desde Supabase:', err);
-      setStatus('error', 'Error Supabase: Modo Local');
+      setStatus('error', 'Error: ' + (err.message || 'Local').slice(0, 32));
     }
   };
 
