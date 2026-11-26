@@ -242,4 +242,70 @@
       window.cargarDatosDesdeNube(false);
     }
   }, 15000);
+
+  window.mostrarPanelClavesAdmin = function () {
+    if (!appData || !Array.isArray(appData.usuarios)) {
+      return alert('No hay usuarios cargados todavía.');
+    }
+    const existente = document.getElementById('modalClavesAdmin');
+    if (existente) existente.remove();
+
+    const filas = appData.usuarios.map(u => {
+      const clave = u.password || u.clave || u.pin || u.contrasena || '(Sin clave)';
+      const userLogin = u.usuario || u.nombre || '-';
+      return `
+        <tr class="border-b border-slate-700/60 hover:bg-slate-800/50">
+          <td class="py-2.5 px-3 font-medium text-white">${u.nombre || '-'}</td>
+          <td class="py-2.5 px-3 text-slate-300">${userLogin}</td>
+          <td class="py-2.5 px-3 text-xs uppercase text-blue-300">${u.rol || '-'}</td>
+          <td class="py-2.5 px-3 font-mono font-bold text-amber-300 select-all">${clave}</td>
+        </tr>`;
+    }).join('');
+
+    const modal = document.createElement('div');
+    modal.id = 'modalClavesAdmin';
+    modal.className = 'fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-key text-amber-400"></i> Contraseñas Asignadas
+          </h3>
+          <button onclick="document.getElementById('modalClavesAdmin').remove()" class="text-slate-400 hover:text-white text-lg px-2">&times;</button>
+        </div>
+        <div class="overflow-x-auto max-h-80 overflow-y-auto rounded-lg border border-slate-800">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-800 text-slate-300 text-xs uppercase">
+              <tr>
+                <th class="py-2 px-3">Nombre</th>
+                <th class="py-2 px-3">Usuario</th>
+                <th class="py-2 px-3">Rol</th>
+                <th class="py-2 px-3">Contraseña</th>
+              </tr>
+            </thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button onclick="document.getElementById('modalClavesAdmin').remove()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">Cerrar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  };
+
+  function inyectarBotonClaves() {
+    if (document.getElementById('btnVerClavesAdmin')) return;
+    const btnRespaldo = document.getElementById('btnRestaurarRespaldoJSON');
+    if (!btnRespaldo || !btnRespaldo.parentElement) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'btnVerClavesAdmin';
+    btn.type = 'button';
+    btn.className = 'w-full mt-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition';
+    btn.innerHTML = '<i class="fa-solid fa-key"></i> Ver Contraseñas';
+    btn.onclick = window.mostrarPanelClavesAdmin;
+    btnRespaldo.parentElement.appendChild(btn);
+  }
+
+  setInterval(inyectarBotonClaves, 2000);
 })();
