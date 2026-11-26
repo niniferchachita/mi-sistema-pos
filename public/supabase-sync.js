@@ -7,6 +7,9 @@
     'Content-Type': 'application/json'
   };
 
+  let syncEnCurso = false;
+  let fallosConsecutivos = 0;
+
   function setStatus(estado, texto) {
     if (typeof actualizarIndicadorNube === 'function') {
       actualizarIndicadorNube(estado, texto);
@@ -48,6 +51,7 @@
 
   window.guardarEnNube = async function () {
     if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
+    syncEnCurso = true;
     setStatus('syncing', 'Guardando en Supabase...');
 
     try {
@@ -80,34 +84,30 @@
           }
         }
       }
-    } catch (e) {
-      console.warn('Pre-combinacion Supabase omitida:', e);
-    }
 
-    limpiarTurnosYaCerrados();
-    if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
+      limpiarTurnosYaCerrados();
+      if (typeof guardarDatosLocales === 'function') guardarDatosLocales();
 
-    const estadoActual = {
-      usuarios: appData.usuarios,
-      saldoCajaGeneral: appData.saldoCajaGeneral,
-      cajaChicaAbierta: appData.cajaChicaAbierta,
-      turnosActivos: typeof obtenerTurnosActivos === 'function' ? obtenerTurnosActivos() : (appData.turnosActivos || []),
-      cajeroActivoId: appData.cajeroActivoId,
-      cajeroActivoNombre: appData.cajeroActivoNombre,
-      movimientosCajaChica: appData.movimientosCajaChica,
-      movimientosGenerales: appData.movimientosGenerales,
-      transferenciasBancos: appData.transferenciasBancos,
-      inventarioProductos: appData.inventarioProductos,
-      ventasContingencia: appData.ventasContingencia,
-      historialCierres: appData.historialCierres,
-      cierresMensuales: appData.cierresMensuales,
-      cierresMensualesEmpleados: appData.cierresMensualesEmpleados,
-      saldoBancoLoja: appData.saldoBancoLoja,
-      saldoBancoPichincha: appData.saldoBancoPichincha,
-      cxp: appData.cxp
-    };
+      const estadoActual = {
+        usuarios: appData.usuarios,
+        saldoCajaGeneral: appData.saldoCajaGeneral,
+        cajaChicaAbierta: appData.cajaChicaAbierta,
+        turnosActivos: typeof obtenerTurnosActivos === 'function' ? obtenerTurnosActivos() : (appData.turnosActivos || []),
+        cajeroActivoId: appData.cajeroActivoId,
+        cajeroActivoNombre: appData.cajeroActivoNombre,
+        movimientosCajaChica: appData.movimientosCajaChica,
+        movimientosGenerales: appData.movimientosGenerales,
+        transferenciasBancos: appData.transferenciasBancos,
+        inventarioProductos: appData.inventarioProductos,
+        ventasContingencia: appData.ventasContingencia,
+        historialCierres: appData.historialCierres,
+        cierresMensuales: appData.cierresMensuales,
+        cierresMensualesEmpleados: appData.cierresMensualesEmpleados,
+        saldoBancoLoja: appData.saldoBancoLoja,
+        saldoBancoPichincha: appData.saldoBancoPichincha,
+        cxp: appData.cxp
+      };
 
-    try {
       const res = await fetch(SUPABASE_URL, {
         method: 'POST',
         headers: {
@@ -124,15 +124,24 @@
         const errTxt = await res.text();
         throw new Error(errTxt || ('HTTP ' + res.status));
       }
+      fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
     } catch (err) {
-      console.error('Error guardando en Supabase:', err);
-      setStatus('error', 'Error: ' + (err.message || 'Local').slice(0, 28));
+      console.warn('Reintentando guardado Supabase:', err);
+      fallosConsecutivos++;
+      if (fallosConsecutivos >= 2) {
+        setStatus('error', 'Sin red: Guardado Local');
+      }
+    } finally {
+      syncEnCurso = false;
     }
   };
 
   window.cargarDatosDesdeNube = async function (mostrarAviso = false) {
-    setStatus('syncing', 'Cargando Supabase...');
+    if (syncEnCurso && !mostrarAviso) return;
+    syncEnCurso = true;
+    if (mostrarAviso) setStatus('syncing', 'Sincronizando Supabase...');
+
     try {
       const res = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor', {
         headers: SUPABASE_HEADERS,
@@ -186,15 +195,22 @@
         else if (typeof renderCaja === 'function') renderCaja();
 
         if (huboNuevosLocales) {
+          syncEnCurso = false;
           await window.guardarEnNube();
           return;
         }
       }
+      fallosConsecutivos = 0;
       setStatus('ok', 'Supabase Conectado');
       if (mostrarAviso) alert('Datos sincronizados correctamente desde Supabase.');
     } catch (err) {
-      console.error('Error cargando desde Supabase:', err);
-      setStatus('error', 'Error: ' + (err.message || 'Local').slice(0, 32));
+      console.warn('Microcorte de lectura Supabase:', err);
+      fallosConsecutivos++;
+      if (fallosConsecutivos >= 3) {
+        setStatus('error', 'Sin red: Modo Local');
+      }
+    } finally {
+      syncEnCurso = false;
     }
   };
 
@@ -205,11 +221,12 @@
     tablas.forEach(tabla => {
       const theadRow = tabla.querySelector('thead tr');
       if (!theadRow) return;
-      const textoHeader = theadRow.textContent || '';
-      if (!textoHeader.includes('ROL ASIGNADO') || !textoHeader.includes('ACCIONES')) return;
+      const textoHeader = (theadRow.textContent || '').toUpperCase();
+      if (!textoHeader.includes('USUARIO') || !textoHeader.includes('ACCIONES')) return;
+      if (!textoHeader.includes('ROL') && !textoHeader.includes('PERMISOS')) return;
 
       if (!theadRow.querySelector('.th-clave-personal')) {
-        const thAcciones = Array.from(theadRow.children).find(th => (th.textContent || '').includes('ACCIONES'));
+        const thAcciones = Array.from(theadRow.children).find(th => (th.textContent || '').toUpperCase().includes('ACCIONES'));
         if (thAcciones) {
           const thClave = document.createElement('th');
           thClave.className = thAcciones.className + ' th-clave-personal';
@@ -232,7 +249,7 @@
         );
 
         const claveReal = userObj
-          ? (userObj.password || userObj.clave || userObj.pin || userObj.contrasena || 'Sin clave')
+          ? (userObj.password || userObj.clave || userObj.pin || userObj.contrasena || userObj.pass || 'Sin clave')
           : '---';
 
         const tdAcciones = celdas[celdas.length - 1];
@@ -240,20 +257,21 @@
         tdClave.className = 'py-3 px-4 text-sm td-clave-personal';
 
         const wrap = document.createElement('div');
-        wrap.className = 'inline-flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1';
+        wrap.className = 'inline-flex items-center gap-2 bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1';
 
         const span = document.createElement('span');
-        span.className = 'font-mono font-semibold text-slate-700 text-xs select-all';
+        span.className = 'font-mono font-bold text-slate-800 text-xs select-all';
         span.dataset.visible = '0';
         span.dataset.clave = claveReal;
         span.textContent = '••••••';
 
         const btnEye = document.createElement('button');
         btnEye.type = 'button';
-        btnEye.title = 'Mostrar u ocultar contraseña';
-        btnEye.className = 'text-slate-500 hover:text-blue-600 transition text-xs focus:outline-none';
+        btnEye.title = 'Ver u ocultar contraseña';
+        btnEye.className = 'text-blue-600 hover:text-blue-800 transition text-sm px-1 focus:outline-none';
         btnEye.innerHTML = '<i class="fa-solid fa-eye"></i>';
         btnEye.onclick = function (e) {
+          e.preventDefault();
           e.stopPropagation();
           const visible = span.dataset.visible === '1';
           if (visible) {
@@ -278,10 +296,15 @@
   window.cargarDatosDesdeNube(false);
   inyectarColumnaContrasenas();
 
-  setInterval(inyectarColumnaContrasenas, 500);
+  const observer = new MutationObserver(() => inyectarColumnaContrasenas());
+  if (document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+  setInterval(inyectarColumnaContrasenas, 400);
+
   setInterval(() => {
-    if (document.visibilityState === 'visible') {
+    if (document.visibilityState === 'visible' && !syncEnCurso) {
       window.cargarDatosDesdeNube(false);
     }
-  }, 15000);
+  }, 20000);
 })();
