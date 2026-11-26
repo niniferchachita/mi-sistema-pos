@@ -136,7 +136,7 @@
       setStatus('ok', 'Supabase Conectado');
     } catch (err) {
       console.error('Error guardando en Supabase:', err);
-      setStatus('error', 'Error Supabase: ' + (err.message || 'Local').slice(0, 28));
+      setStatus('error', 'Error: ' + (err.message || 'Local').slice(0, 28));
     }
   };
 
@@ -203,109 +203,101 @@
     }
   };
 
-  function inyectarBotonRespaldo() {
-    if (document.getElementById('btnRestaurarRespaldoJSON')) return;
-    const badge = document.getElementById('cloudSyncBadge');
-    const contenedor = badge ? badge.parentElement : null;
-    if (!contenedor) return;
+  // Inyectar columna CONTRASEÑA dentro de la tabla "Colaboradores Registrados" en Gestion de Personal
+  function inyectarColumnaContrasenas() {
+    if (typeof appData === 'undefined' || !Array.isArray(appData.usuarios)) return;
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.id = 'inputRespaldoJSON';
-    input.accept = '.json';
-    input.className = 'hidden';
-    input.onchange = window.importarRespaldoJSON;
+    const tablas = document.querySelectorAll('table');
+    tablas.forEach(tabla => {
+      const theadRow = tabla.querySelector('thead tr');
+      if (!theadRow) return;
+      const textoHeader = theadRow.textContent || '';
+      if (!textoHeader.includes('ROL ASIGNADO') || !textoHeader.includes('ACCIONES')) return;
 
-    const btn = document.createElement('button');
-    btn.id = 'btnRestaurarRespaldoJSON';
-    btn.type = 'button';
-    btn.className = 'w-full mt-2 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition';
-    btn.innerHTML = '<i class="fa-solid fa-file-import"></i> Restaurar Respaldo JSON';
-    btn.onclick = () => input.click();
+      // Agregar encabezado CONTRASEÑA antes de ACCIONES si no existe
+      if (!theadRow.querySelector('.th-clave-personal')) {
+        const thAcciones = Array.from(theadRow.children).find(th => (th.textContent || '').includes('ACCIONES'));
+        if (thAcciones) {
+          const thClave = document.createElement('th');
+          thClave.className = thAcciones.className + ' th-clave-personal';
+          thClave.textContent = 'CONTRASEÑA';
+          theadRow.insertBefore(thClave, thAcciones);
+        }
+      }
 
-    contenedor.appendChild(input);
-    contenedor.appendChild(btn);
+      // Agregar celda con la clave y boton de ojito en cada fila de colaborador
+      const filas = tabla.querySelectorAll('tbody tr');
+      filas.forEach(tr => {
+        if (tr.querySelector('.td-clave-personal')) return;
+        const celdas = tr.children;
+        if (celdas.length < 4) return;
+
+        const nombreFila = (celdas[0].textContent || '').trim().toUpperCase();
+        const usuarioFila = (celdas[1].textContent || '').trim().toUpperCase();
+        const userObj = appData.usuarios.find(u =>
+          (u.usuario && u.usuario.trim().toUpperCase() === usuarioFila) ||
+          (u.nombre && u.nombre.trim().toUpperCase() === nombreFila)
+        );
+
+        const claveReal = userObj
+          ? (userObj.password || userObj.clave || userObj.pin || userObj.contrasena || 'Sin clave')
+          : '---';
+
+        const tdAcciones = celdas[celdas.length - 1];
+        const tdClave = document.createElement('td');
+        tdClave.className = 'py-3 px-4 text-sm td-clave-personal';
+
+        const wrap = document.createElement('div');
+        wrap.className = 'inline-flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1';
+
+        const span = document.createElement('span');
+        span.className = 'font-mono font-semibold text-slate-700 text-xs select-all';
+        span.dataset.visible = '0';
+        span.dataset.clave = claveReal;
+        span.textContent = '••••••';
+
+        const btnEye = document.createElement('button');
+        btnEye.type = 'button';
+        btnEye.title = 'Mostrar u ocultar contraseña';
+        btnEye.className = 'text-slate-500 hover:text-blue-600 transition text-xs focus:outline-none';
+        btnEye.innerHTML = '<i class="fa-solid fa-eye"></i>';
+        btnEye.onclick = function (e) {
+          e.stopPropagation();
+          const visible = span.dataset.visible === '1';
+          if (visible) {
+            span.textContent = '••••••';
+            span.dataset.visible = '0';
+            btnEye.innerHTML = '<i class="fa-solid fa-eye"></i>';
+          } else {
+            span.textContent = span.dataset.clave;
+            span.dataset.visible = '1';
+            btnEye.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+          }
+        };
+
+        wrap.appendChild(span);
+        wrap.appendChild(btnEye);
+        tdClave.appendChild(wrap);
+        tr.insertBefore(tdClave, tdAcciones);
+      });
+    });
   }
 
   window.addEventListener('DOMContentLoaded', () => {
-    inyectarBotonRespaldo();
     window.cargarDatosDesdeNube(false);
+    inyectarColumnaContrasenas();
   });
 
   if (document.readyState !== 'loading') {
-    inyectarBotonRespaldo();
     window.cargarDatosDesdeNube(false);
+    inyectarColumnaContrasenas();
   }
+
+  setInterval(inyectarColumnaContrasenas, 600);
 
   setInterval(() => {
     if (document.visibilityState === 'visible') {
       window.cargarDatosDesdeNube(false);
     }
   }, 15000);
-
-  window.mostrarPanelClavesAdmin = function () {
-    if (!appData || !Array.isArray(appData.usuarios)) {
-      return alert('No hay usuarios cargados todavía.');
-    }
-    const existente = document.getElementById('modalClavesAdmin');
-    if (existente) existente.remove();
-
-    const filas = appData.usuarios.map(u => {
-      const clave = u.password || u.clave || u.pin || u.contrasena || '(Sin clave)';
-      const userLogin = u.usuario || u.nombre || '-';
-      return `
-        <tr class="border-b border-slate-700/60 hover:bg-slate-800/50">
-          <td class="py-2.5 px-3 font-medium text-white">${u.nombre || '-'}</td>
-          <td class="py-2.5 px-3 text-slate-300">${userLogin}</td>
-          <td class="py-2.5 px-3 text-xs uppercase text-blue-300">${u.rol || '-'}</td>
-          <td class="py-2.5 px-3 font-mono font-bold text-amber-300 select-all">${clave}</td>
-        </tr>`;
-    }).join('');
-
-    const modal = document.createElement('div');
-    modal.id = 'modalClavesAdmin';
-    modal.className = 'fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4';
-    modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-5 shadow-2xl">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-base font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-key text-amber-400"></i> Contraseñas Asignadas
-          </h3>
-          <button onclick="document.getElementById('modalClavesAdmin').remove()" class="text-slate-400 hover:text-white text-lg px-2">&times;</button>
-        </div>
-        <div class="overflow-x-auto max-h-80 overflow-y-auto rounded-lg border border-slate-800">
-          <table class="w-full text-left text-sm">
-            <thead class="bg-slate-800 text-slate-300 text-xs uppercase">
-              <tr>
-                <th class="py-2 px-3">Nombre</th>
-                <th class="py-2 px-3">Usuario</th>
-                <th class="py-2 px-3">Rol</th>
-                <th class="py-2 px-3">Contraseña</th>
-              </tr>
-            </thead>
-            <tbody>${filas}</tbody>
-          </table>
-        </div>
-        <div class="mt-4 flex justify-end">
-          <button onclick="document.getElementById('modalClavesAdmin').remove()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">Cerrar</button>
-        </div>
-      </div>`;
-    document.body.appendChild(modal);
-  };
-
-  function inyectarBotonClaves() {
-    if (document.getElementById('btnVerClavesAdmin')) return;
-    const btnRespaldo = document.getElementById('btnRestaurarRespaldoJSON');
-    if (!btnRespaldo || !btnRespaldo.parentElement) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'btnVerClavesAdmin';
-    btn.type = 'button';
-    btn.className = 'w-full mt-1.5 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition';
-    btn.innerHTML = '<i class="fa-solid fa-key"></i> Ver Contraseñas';
-    btn.onclick = window.mostrarPanelClavesAdmin;
-    btnRespaldo.parentElement.appendChild(btn);
-  }
-
-  setInterval(inyectarBotonClaves, 2000);
 })();
