@@ -62,7 +62,7 @@
     setStatus('syncing', 'Guardando en Supabase...');
 
     try {
-      const resGet = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor&t=' + Date.now(), {
+      const resGet = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor', {
         headers: SUPABASE_HEADERS,
         cache: 'no-store'
       });
@@ -143,7 +143,7 @@
   window.cargarDatosDesdeNube = async function (mostrarAviso = false) {
     setStatus('syncing', 'Cargando Supabase...');
     try {
-      const res = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor&t=' + Date.now(), {
+      const res = await fetch(SUPABASE_URL + '?clave=eq.estado_principal&select=valor', {
         headers: SUPABASE_HEADERS,
         cache: 'no-store'
       });
